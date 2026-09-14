@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom Documents Pro</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <p class="eyebrow">AGQ · Customs documentation</p>
+      <h1>Custom Documents Pro</h1>
+      <p class="subtitle">Convierte una factura PDF en una base editable para documentación aduanera y proforma.</p>
+    </section>
+
+    <section class="card uploader-card">
+      <label class="upload-zone" for="pdfInput">
+        <span class="upload-icon">PDF</span>
+        <strong>Selecciona una factura PDF</strong>
+        <span>El archivo se procesa localmente en tu navegador.</span>
+        <input id="pdfInput" type="file" accept="application/pdf,.pdf" hidden />
+      </label>
+
+      <div id="fileStatus" class="status status-idle" aria-live="polite">
+        Ningún archivo seleccionado.
+      </div>
+    </section>
+
+    <section id="invoicePanel" class="card hidden">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Documento cargado</p>
+          <h2>Preparación aduanera</h2>
+        </div>
+        <button id="clearButton" type="button" class="button button-secondary">Limpiar</button>
+      </div>
+
+      <div class="grid">
+        <label>
+          Nombre del archivo
+          <input id="fileName" type="text" readonly />
+        </label>
+        <label>
+          Tamaño
+          <input id="fileSize" type="text" readonly />
+        </label>
+      </div>
+
+      <div class="notice">
+        En la siguiente versión se extraerán automáticamente número de factura, fecha, destinatario, líneas e importes.
+      </div>
+    </section>
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
