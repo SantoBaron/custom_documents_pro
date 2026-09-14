@@ -119,32 +119,95 @@ function firstMatch(text, regex, fallback = '') {
   return match ? normalizeSpaces(match[1] ?? match[0]) : fallback;
 }
 
-function detectSeller(lines) {
-  return lines.find((line) => /AGQ\s+(TECHNOLOGICAL|LABS|INTERNATIONAL)/i.test(line)) || '';
-}
+const sellerPatterns = [
+  /AGQ TECHNOLOGICAL CORPORATE,?\s*S\.?L\.?/i,
+  /AGQ LABS INTERNATIONAL,?\s*S\.?L\.?/i,
+  /AGQ TECHNOLOGICAL SERVICES,?\s*S\.?L\.?/i,
+];
 
-function detectCustomerName(lines, seller) {
-  const sellerIndex = lines.findIndex((line) => line === seller);
-  const sellerPrefixes = [
-    /AGQ TECHNOLOGICAL CORPORATE,? S\.?L\.?/i,
-    /AGQ LABS INTERNATIONAL,? S\.?L\.?/i,
-  ];
+function splitPartyHeader(lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
 
-  if (seller) {
-    for (const prefix of sellerPrefixes) {
-      if (prefix.test(seller)) {
-        const possible = normalizeSpaces(seller.replace(prefix, ''));
-        if (possible && possible.length > 3) return possible;
-      }
+    for (const pattern of sellerPatterns) {
+      const match = line.match(pattern);
+      if (!match) continue;
+
+      const sellerName = normalizeSpaces(match[0]);
+      const customerName = normalizeSpaces(line.slice((match.index || 0) + match[0].length));
+
+      return {
+        index,
+        sellerName,
+        customerName,
+      };
     }
   }
 
-  const candidates = lines.slice(Math.max(0, sellerIndex), sellerIndex + 6);
-  return candidates.find((line) => {
-    if (!line || /AGQ/i.test(line)) return false;
-    if (/Fecha|CIF|NIF|Tel|FACTURA|DESCRIPCI[ÓO]N/i.test(line)) return false;
-    return /[A-ZÁÉÍÓÚÑ]{3,}/.test(line);
-  }) || '';
+  return { index: -1, sellerName: '', customerName: '' };
+}
+
+function countryCodeFromLine(line = '') {
+  const letters = line.toUpperCase().replace(/[^A-Z]/g, '');
+  if (/^[A-Z]{2}$/.test(letters)) return letters;
+  if (/^[A-Z]{4}$/.test(letters) && letters.slice(0, 2) === letters.slice(2, 4)) {
+    return letters.slice(0, 2);
+  }
+  return '';
+}
+
+function parseCustomerBlock(lines, header) {
+  if (header.index < 0) {
+    return { address: '', country: '' };
+  }
+
+  const addressLines = [];
+  let country = '';
+
+  for (let i = header.index + 1; i < Math.min(lines.length, header.index + 8); i += 1) {
+    const line = normalizeSpaces(lines[i]);
+    if (!line) continue;
+
+    if (/Fecha\s+(?:Vencimiento|Emisi[oó]n)|CIF\/NIF|\bNIF\b|\bCIF\b|Tax ID|DESCRIPCI[ÓO]N|FACTURA/i.test(line)) {
+      break;
+    }
+
+    const code = countryCodeFromLine(line);
+    if (code) {
+      country = code;
+      continue;
+    }
+
+    addressLines.push(line);
+  }
+
+  if (!country) {
+    const joined = addressLines.join(' ');
+    const knownCountries = [
+      ['Costa Rica', 'CR'],
+      ['España', 'ES'],
+      ['Spain', 'ES'],
+      ['Portugal', 'PT'],
+      ['Francia', 'FR'],
+      ['France', 'FR'],
+      ['Italia', 'IT'],
+      ['Italy', 'IT'],
+      ['Alemania', 'DE'],
+      ['Germany', 'DE'],
+      ['Marruecos', 'MA'],
+      ['Morocco', 'MA'],
+      ['Saudi Arabia', 'SA'],
+      ['Arabia Saudí', 'SA'],
+    ];
+
+    const found = knownCountries.find(([name]) => joined.toLowerCase().includes(name.toLowerCase()));
+    if (found) country = found[1];
+  }
+
+  return {
+    address: addressLines.join('\n'),
+    country,
+  };
 }
 
 function detectTaxIds(lines) {
@@ -154,29 +217,6 @@ function detectTaxIds(lines) {
     matches.forEach((match) => values.push(match[1]));
   });
   return [...new Set(values)];
-}
-
-function detectCountry(lines) {
-  const compactCountry = lines.find((line) => /^([A-Z]{2})(?:\s*[-–]\s*\1)?$/i.test(line.replace(/[^A-Z-]/gi, '')));
-  if (compactCountry) return compactCountry.replace(/[^A-Z]/gi, '').slice(0, 2).toUpperCase();
-
-  const countryLine = lines.find((line) => /\b(Costa Rica|España|Spain|Portugal|Francia|France|Italia|Italy|Alemania|Germany|Marruecos|Morocco|Saudi Arabia|Arabia Saudí)\b/i.test(line));
-  return countryLine || '';
-}
-
-function detectAddress(lines, customerName) {
-  if (!customerName) return '';
-  const index = lines.findIndex((line) => line.includes(customerName));
-  if (index < 0) return '';
-
-  const candidates = [];
-  for (let i = index + 1; i < Math.min(lines.length, index + 5); i += 1) {
-    const line = lines[i];
-    if (/Fecha|CIF|NIF|DESCRIPCI[ÓO]N|FACTURA|Tel:/i.test(line)) continue;
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(line)) continue;
-    if (line.length > 2) candidates.push(line);
-  }
-  return candidates.join('\n');
 }
 
 function detectItems(lines) {
@@ -208,17 +248,18 @@ function detectItems(lines) {
 
 function parseInvoice(lines) {
   const fullText = lines.join('\n');
-  const seller = detectSeller(lines);
+  const header = splitPartyHeader(lines);
+  const customerBlock = parseCustomerBlock(lines, header);
   const taxIds = detectTaxIds(lines);
 
   return {
     invoiceNumber: firstMatch(fullText, /\b((?:FAC|FV|INV)-[A-Z0-9-]+)\b/i),
     issueDate: firstMatch(fullText, /Fecha\s+Emisi[oó]n\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i),
-    sellerName: seller,
-    customerName: detectCustomerName(lines, seller),
+    sellerName: header.sellerName,
+    customerName: header.customerName,
     customerTaxId: taxIds[0] || '',
-    customerCountry: detectCountry(lines),
-    customerAddress: '',
+    customerCountry: customerBlock.country,
+    customerAddress: customerBlock.address,
     invoiceTotal: firstMatch(fullText, /Total\s+Factura\s+(?:EUR\s+)?([\d.]+,\d{2}|\d+\.\d{2})/i),
     items: detectItems(lines),
   };
@@ -246,14 +287,14 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-function populateForm(parsed, lines) {
+function populateForm(parsed) {
   fields.invoiceNumber.value = parsed.invoiceNumber;
   fields.issueDate.value = parsed.issueDate;
   fields.sellerName.value = parsed.sellerName;
   fields.customerName.value = parsed.customerName;
   fields.customerTaxId.value = parsed.customerTaxId;
   fields.customerCountry.value = parsed.customerCountry;
-  fields.customerAddress.value = detectAddress(lines, parsed.customerName);
+  fields.customerAddress.value = parsed.customerAddress;
   fields.invoiceTotal.value = parsed.invoiceTotal;
 
   itemsBody.innerHTML = '';
@@ -299,7 +340,7 @@ pdfInput.addEventListener('change', async () => {
     const lines = await extractPdf(file, (message) => setParseStatus(message, 'idle', true));
     rawText.textContent = lines.join('\n');
     const parsed = parseInvoice(lines);
-    populateForm(parsed, lines);
+    populateForm(parsed);
     setParseStatus('Lectura completada. Revisa los campos detectados y corrige lo necesario.', 'ok');
   } catch (error) {
     console.error(error);
