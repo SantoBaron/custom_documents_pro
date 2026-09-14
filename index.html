@@ -11,7 +11,7 @@
     <section class="hero">
       <p class="eyebrow">AGQ · Customs documentation</p>
       <h1>Custom Documents Pro</h1>
-      <p class="subtitle">Convierte una factura PDF en una base editable para documentación aduanera y proforma.</p>
+      <p class="subtitle">Convierte una factura PDF en datos editables para preparar documentación aduanera y proforma.</p>
     </section>
 
     <section class="card uploader-card">
@@ -31,12 +31,12 @@
       <div class="section-heading">
         <div>
           <p class="eyebrow">Documento cargado</p>
-          <h2>Preparación aduanera</h2>
+          <h2>Validación de datos</h2>
         </div>
         <button id="clearButton" type="button" class="button button-secondary">Limpiar</button>
       </div>
 
-      <div class="grid">
+      <div class="grid file-meta">
         <label>
           Nombre del archivo
           <input id="fileName" type="text" readonly />
@@ -47,12 +47,102 @@
         </label>
       </div>
 
-      <div class="notice">
-        En la siguiente versión se extraerán automáticamente número de factura, fecha, destinatario, líneas e importes.
-      </div>
+      <div id="parseStatus" class="status status-idle">Esperando lectura del PDF…</div>
+
+      <form id="invoiceForm" class="hidden" autocomplete="off">
+        <div class="form-section">
+          <div class="section-title-row">
+            <div>
+              <p class="eyebrow">Factura origen</p>
+              <h3>Datos generales</h3>
+            </div>
+            <span class="validation-badge">Editable</span>
+          </div>
+
+          <div class="grid">
+            <label>
+              Nº factura
+              <input id="invoiceNumber" type="text" />
+            </label>
+            <label>
+              Fecha de emisión
+              <input id="issueDate" type="text" placeholder="dd/mm/aaaa" />
+            </label>
+            <label class="grid-span-2">
+              Empresa emisora
+              <input id="sellerName" type="text" />
+            </label>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <p class="eyebrow">Destinatario</p>
+          <h3>Cliente / Consignatario</h3>
+          <div class="grid">
+            <label class="grid-span-2">
+              Razón social
+              <input id="customerName" type="text" />
+            </label>
+            <label>
+              CIF / NIF / Tax ID
+              <input id="customerTaxId" type="text" />
+            </label>
+            <label>
+              País / código país
+              <input id="customerCountry" type="text" />
+            </label>
+            <label class="grid-span-2">
+              Dirección
+              <textarea id="customerAddress" rows="3"></textarea>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="section-title-row">
+            <div>
+              <p class="eyebrow">Mercancía</p>
+              <h3>Líneas detectadas</h3>
+            </div>
+            <button id="addLineButton" class="button button-secondary" type="button">+ Añadir línea</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>Descripción</th>
+                  <th>Cantidad</th>
+                  <th>Precio</th>
+                  <th>Importe</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="itemsBody"></tbody>
+            </table>
+          </div>
+
+          <div class="total-row">
+            <label>
+              Total factura EUR
+              <input id="invoiceTotal" type="text" />
+            </label>
+          </div>
+        </div>
+
+        <div class="notice notice-success">
+          Revisa y corrige estos datos antes de continuar. En la siguiente fase añadiremos los campos específicamente aduaneros y la generación del DOCX.
+        </div>
+      </form>
+
+      <details id="debugPanel" class="debug-panel hidden">
+        <summary>Ver texto extraído del PDF</summary>
+        <pre id="rawText"></pre>
+      </details>
     </section>
   </main>
 
-  <script src="js/app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
+  <script src="js/app.js" type="module"></script>
 </body>
 </html>
