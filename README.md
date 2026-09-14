@@ -6,7 +6,7 @@ Web tool to convert AGQ invoice PDFs into editable customs/proforma documents.
 
 Crear una aplicación web sencilla que permita:
 
-1. Cargar una factura PDF generada por AGQ/SAGE.
+1. Cargar una factura PDF generada por SAGE.
 2. Extraer automáticamente los datos comerciales relevantes.
 3. Revisar y completar los campos específicamente aduaneros.
 4. Generar un documento DOCX editable para proforma/commercial invoice.
@@ -43,7 +43,7 @@ El flujo previsto es:
 - Extraer texto y posiciones de las páginas.
 - Mostrar el texto detectado para validar la lectura.
 
-### V0.3 - Parser de factura AGQ
+### V0.3 - Parser de factura 
 
 Extraer automáticamente, cuando estén disponibles:
 
