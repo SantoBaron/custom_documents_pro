@@ -33,9 +33,11 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function setParseStatus(message, type = 'idle') {
-  parseStatus.className = `status status-${type}`;
-  parseStatus.textContent = message;
+function setParseStatus(message, type = 'idle', loading = false) {
+  parseStatus.className = `status status-${type}${loading ? ' status-loading' : ''}`;
+  parseStatus.innerHTML = loading
+    ? `<span class="spinner" aria-hidden="true"></span><span>${message}</span>`
+    : message;
 }
 
 function clearFields() {
@@ -92,18 +94,23 @@ function groupTextItems(items) {
     .filter(Boolean);
 }
 
-async function extractPdf(file) {
+async function extractPdf(file, onProgress) {
+  onProgress?.('Abriendo PDF…');
   const buffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const loadingTask = pdfjsLib.getDocument({ data: buffer });
+  const pdf = await loadingTask.promise;
   const allLines = [];
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    onProgress?.(`Leyendo página ${pageNumber} de ${pdf.numPages}…`);
     const page = await pdf.getPage(pageNumber);
     const textContent = await page.getTextContent();
     const lines = groupTextItems(textContent.items);
     allLines.push(...lines);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
   }
 
+  onProgress?.('Interpretando campos de la factura…');
   return allLines;
 }
 
@@ -284,17 +291,19 @@ pdfInput.addEventListener('change', async () => {
   debugPanel.classList.add('hidden');
   fileStatus.className = 'status status-ok';
   fileStatus.textContent = 'PDF cargado correctamente. El archivo permanece en este navegador.';
-  setParseStatus('Leyendo y analizando el PDF…');
+  setParseStatus('Preparando lectura del PDF…', 'idle', true);
+
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
   try {
-    const lines = await extractPdf(file);
+    const lines = await extractPdf(file, (message) => setParseStatus(message, 'idle', true));
     rawText.textContent = lines.join('\n');
     const parsed = parseInvoice(lines);
     populateForm(parsed, lines);
     setParseStatus('Lectura completada. Revisa los campos detectados y corrige lo necesario.', 'ok');
   } catch (error) {
     console.error(error);
-    setParseStatus('No se ha podido leer el PDF. Puedes probar con otra factura o revisar el detalle técnico en consola.', 'error');
+    setParseStatus(`No se ha podido leer el PDF: ${error?.message || 'error desconocido'}`, 'error');
   }
 });
 
