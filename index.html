@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Custom Documents Pro</title>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=0.2.1" />
 </head>
 <body>
   <main class="app-shell">
@@ -47,7 +47,7 @@
         </label>
       </div>
 
-      <div id="parseStatus" class="status status-idle">Esperando lectura del PDF…</div>
+      <div id="parseStatus" class="status status-idle" aria-live="polite">Esperando lectura del PDF…</div>
 
       <form id="invoiceForm" class="hidden" autocomplete="off">
         <div class="form-section">
@@ -142,7 +142,6 @@
     </section>
   </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
-  <script src="js/app.js" type="module"></script>
+  <script src="js/app.js?v=0.2.1" type="module"></script>
 </body>
 </html>
